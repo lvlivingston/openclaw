@@ -30,7 +30,6 @@ services:
         "${OPENCLAW_GATEWAY_PORT}",
         "--auth",
         "token",
-        "--allow-unconfigured"
       ]
 
 
