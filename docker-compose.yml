@@ -1,46 +1,89 @@
 services:
   openclaw-gateway:
-    image: ${OPENCLAW_IMAGE:-openclaw:local}
+    image: ${OPENCLAW_IMAGE}
+    build: .
+    restart: unless-stopped    
+    env_file:
+      - .env
+    network_mode: "host"
     environment:
-      HOME: /home/node
-      TERM: xterm-256color
-      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
-      CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY}
-      CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY}
-      CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE}
+      - HOME=/home/node
+      - NODE_ENV=production
+      - TERM=xterm-256color
+      - OPENCLAW_GATEWAY_BIND=${OPENCLAW_GATEWAY_BIND}
+      - OPENCLAW_GATEWAY_PORT=${OPENCLAW_GATEWAY_PORT}
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      - GOG_KEYRING_PASSWORD=${GOG_KEYRING_PASSWORD}
+      - XDG_CONFIG_HOME=${XDG_CONFIG_HOME}
+      - PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
       - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
       - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
-    ports:
-      - "${OPENCLAW_GATEWAY_PORT:-18789}:18789"
-      - "${OPENCLAW_BRIDGE_PORT:-18790}:18790"
-    init: true
-    restart: unless-stopped
     command:
       [
         "node",
         "dist/index.js",
         "gateway",
         "--bind",
-        "${OPENCLAW_GATEWAY_BIND:-lan}",
+        "${OPENCLAW_GATEWAY_BIND}",
         "--port",
-        "18789",
+        "${OPENCLAW_GATEWAY_PORT}",
+        "--auth",
+        "token",
+        "--token",
+        "${OPENCLAW_GATEWAY_TOKEN}",
+        "--allow-unconfigured"
       ]
 
-  openclaw-cli:
-    image: ${OPENCLAW_IMAGE:-openclaw:local}
+
+  openclaw-node:
+    image: ${OPENCLAW_IMAGE}
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    network_mode: "host"
     environment:
-      HOME: /home/node
-      TERM: xterm-256color
-      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
-      BROWSER: echo
-      CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY}
-      CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY}
-      CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE}
+      - HOME=/home/node
+      - NODE_ENV=production
+      - TERM=xterm-256color
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      - GOG_KEYRING_PASSWORD=${GOG_KEYRING_PASSWORD}
+      - XDG_CONFIG_HOME=${XDG_CONFIG_HOME}
     volumes:
       - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
       - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
-    stdin_open: true
-    tty: true
-    init: true
+    command:
+      [
+        "node",
+        "dist/index.js",
+        "node",
+        "run",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "18789",
+        "--display-name",
+        "Hetzner VPS Node"
+      ]
+    depends_on:
+      - openclaw-gateway
+
+
+  openclaw-cli:
+    image: ${OPENCLAW_IMAGE}
+    build: .
+    profiles: ["cli"]
+    env_file:
+      - .env
+    environment:
+      - HOME=/home/node
+      - TERM=xterm-256color
+      - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      - GOG_KEYRING_PASSWORD=${GOG_KEYRING_PASSWORD}
+      - XDG_CONFIG_HOME=${XDG_CONFIG_HOME}
+    volumes:
+      - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
+      - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
     entrypoint: ["node", "dist/index.js"]
+    command: ["--help"]
