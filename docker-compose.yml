@@ -5,7 +5,6 @@ services:
     restart: unless-stopped    
     env_file:
       - .env
-    network_mode: "host"
     environment:
       - HOME=/home/node
       - NODE_ENV=production
@@ -19,6 +18,8 @@ services:
     volumes:
       - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
       - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
+    ports:
+      - "127.0.0.1:${OPENCLAW_GATEWAY_PORT}:18789"
     command:
       [
         "node",
@@ -27,7 +28,7 @@ services:
         "--bind",
         "${OPENCLAW_GATEWAY_BIND}",
         "--port",
-        "${OPENCLAW_GATEWAY_PORT}",
+        "18789",
         "--auth",
         "token",
       ]
@@ -39,7 +40,6 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    network_mode: "host"
     environment:
       - HOME=/home/node
       - NODE_ENV=production
@@ -57,7 +57,7 @@ services:
         "node",
         "run",
         "--host",
-        "127.0.0.1",
+        "openclaw-gateway",
         "--port",
         "18789",
         "--display-name",
