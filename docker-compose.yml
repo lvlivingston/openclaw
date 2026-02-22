@@ -13,7 +13,7 @@ services:
       - OPENCLAW_GATEWAY_PORT=${OPENCLAW_GATEWAY_PORT}
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
       - GOG_KEYRING_PASSWORD=${GOG_KEYRING_PASSWORD}
-      - XDG_CONFIG_HOME=${XDG_CONFIG_HOME}
+      - XDG_CONFIG_HOME=/home/node/.openclaw
       - PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
       - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
@@ -40,12 +40,13 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    network_mode: "service:openclaw-gateway"
+    network_mode: "host"
     environment:
       - HOME=/home/node
       - NODE_ENV=production
       - TERM=xterm-256color
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      - OPENCLAW_GATEWAY_URL=${OPENCLAW_GATEWAY_WSS_URL}
       - GOG_KEYRING_PASSWORD=${GOG_KEYRING_PASSWORD}
       - XDG_CONFIG_HOME=/home/node/.openclaw
     volumes:
@@ -54,7 +55,7 @@ services:
     command:
       [
         "sh","-lc",
-        "until node -e \"const net=require('net'); const s=net.connect(18789,'127.0.0.1'); s.on('connect',()=>process.exit(0)); s.on('error',()=>process.exit(1));\"; do echo 'waiting for gateway'; sleep 1; done; exec node dist/index.js node run --host 127.0.0.1 --port 18789 --display-name 'Hetzner VPS Node'"
+        "until curl -fsS http://127.0.0.1:18789/ >/dev/null; do echo 'waiting for gateway'; sleep 1; done; exec node dist/index.js node run --host 127.0.0.1 --port 18789 --display-name 'Hetzner VPS Node'"
       ]
     depends_on:
       openclaw-gateway:
@@ -67,16 +68,18 @@ services:
     profiles: ["cli"]
     env_file:
       - .env
-    network_mode: "service:openclaw-gateway"
     environment:
       - HOME=/home/node
       - TERM=xterm-256color
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
+      - OPENCLAW_GATEWAY_URL=${OPENCLAW_GATEWAY_WSS_URL}
       - GOG_KEYRING_PASSWORD=${GOG_KEYRING_PASSWORD}
-      - XDG_CONFIG_HOME=${XDG_CONFIG_HOME}
-      - OPENCLAW_GATEWAY_URL=ws://openclaw-gateway:18789
+      - XDG_CONFIG_HOME=/home/node/.openclaw
     volumes:
-      - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
-      - ${OPENCLAW_GATEWAY_WORKSPACE_DIR}:/home/node/.openclaw/workspace
+      - ${OPENCLAW_CLI_CONFIG_DIR}:/home/node/.openclaw
+      - ${OPENCLAW_CLI_WORKSPACE_DIR}:/home/node/.openclaw/workspace
     entrypoint: ["node", "dist/index.js"]
     command: ["--help"]
+    depends_on:
+      openclaw-gateway:
+        condition: service_started
