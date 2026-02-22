@@ -57,7 +57,8 @@ services:
         "until node -e \"const net=require('net'); const s=net.connect(18789,'127.0.0.1'); s.on('connect',()=>process.exit(0)); s.on('error',()=>process.exit(1));\"; do echo 'waiting for gateway'; sleep 1; done; exec node dist/index.js node run --host 127.0.0.1 --port 18789 --display-name 'Hetzner VPS Node'"
       ]
     depends_on:
-      - openclaw-gateway
+      openclaw-gateway:
+        condition: service_started
 
 
   openclaw-cli:
