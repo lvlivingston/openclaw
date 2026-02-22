@@ -73,6 +73,7 @@ services:
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
       - GOG_KEYRING_PASSWORD=${GOG_KEYRING_PASSWORD}
       - XDG_CONFIG_HOME=${XDG_CONFIG_HOME}
+      - OPENCLAW_GATEWAY_URL=ws://openclaw-gateway:18789
     volumes:
       - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
       - ${OPENCLAW_GATEWAY_WORKSPACE_DIR}:/home/node/.openclaw/workspace
