@@ -2,7 +2,7 @@ services:
   openclaw-gateway:
     image: ${OPENCLAW_IMAGE}
     build: .
-    restart: unless-stopped    
+    restart: unless-stopped
     env_file:
       - .env
     environment:
@@ -17,7 +17,7 @@ services:
       - PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
       - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
-      - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
+      - ${OPENCLAW_GATEWAY_WORKSPACE_DIR}:/home/node/.openclaw/workspace
     ports:
       - "127.0.0.1:${OPENCLAW_GATEWAY_PORT}:18789"
     command:
@@ -30,7 +30,7 @@ services:
         "--port",
         "18789",
         "--auth",
-        "token",
+        "token"
       ]
 
 
@@ -40,28 +40,21 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    network_mode: "service:openclaw-gateway"
     environment:
       - HOME=/home/node
       - NODE_ENV=production
       - TERM=xterm-256color
       - OPENCLAW_GATEWAY_TOKEN=${OPENCLAW_GATEWAY_TOKEN}
       - GOG_KEYRING_PASSWORD=${GOG_KEYRING_PASSWORD}
-      - XDG_CONFIG_HOME=${XDG_CONFIG_HOME}
+      - XDG_CONFIG_HOME=/home/node/.openclaw
     volumes:
-      - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
-      - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
+      - ${OPENCLAW_NODE_CONFIG_DIR}:/home/node/.openclaw
+      - ${OPENCLAW_NODE_WORKSPACE_DIR}:/home/node/.openclaw/workspace
     command:
       [
-        "node",
-        "dist/index.js",
-        "node",
-        "run",
-        "--host",
-        "openclaw-gateway",
-        "--port",
-        "18789",
-        "--display-name",
-        "Hetzner VPS Node"
+        "sh","-lc",
+        "until node -e \"const net=require('net'); const s=net.connect(18789,'127.0.0.1'); s.on('connect',()=>process.exit(0)); s.on('error',()=>process.exit(1));\"; do echo 'waiting for gateway'; sleep 1; done; exec node dist/index.js node run --host 127.0.0.1 --port 18789 --display-name 'Hetzner VPS Node'"
       ]
     depends_on:
       - openclaw-gateway
@@ -73,6 +66,7 @@ services:
     profiles: ["cli"]
     env_file:
       - .env
+    network_mode: "service:openclaw-gateway"
     environment:
       - HOME=/home/node
       - TERM=xterm-256color
@@ -81,6 +75,6 @@ services:
       - XDG_CONFIG_HOME=${XDG_CONFIG_HOME}
     volumes:
       - ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
-      - ${OPENCLAW_WORKSPACE_DIR}:/home/node/.openclaw/workspace
+      - ${OPENCLAW_GATEWAY_WORKSPACE_DIR}:/home/node/.openclaw/workspace
     entrypoint: ["node", "dist/index.js"]
     command: ["--help"]
