@@ -105,3 +105,8 @@ dist/protocol.schema.json
 
 # Local OpenClaw config
 openclaw.json
+
+# Local TLS artifacts (never commit)
+*.key
+*.crt
+ubuntu-*.ts.net.*
