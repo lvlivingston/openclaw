@@ -10,3 +10,6 @@ Notes:
 - Gateway token lives in `.env` (gitignored)
 - Do not rotate token without restarting both gateway + node
 
+Agents:
+- main     → stable / default
+- sandbox  → experimental (tools, browser control, model tests)
