@@ -233,3 +233,53 @@ tar -czf openclaw-state-$(date +%F).tgz ~/.openclaw
 - Pulumi cloud deployment ideas: https://www.pulumi.com/blog/deploy-openclaw-aws-hetzner/
 - Zero-trust Tailscale deployment patterns: https://alirezarezvani.medium.com/i-deployed-openclaw-with-zero-public-ports-here-is-the-tailscale-setup-that-actually-works-86f8c9e6f158
 ```
+
+## 12. Current Structure for Ongoing Setup
+
+## Access + Network Topology (Zero Public Ports)
+
+### Goal
+
+Run the OpenClaw Gateway on a Hetzner VPS with **no public HTTP(S) ports**, and access the UI **only via Tailscale** using `tailscale serve` (MagicDNS + TLS termination).
+
+### Current State (✅ expected)
+
+- Gateway UI is reachable at:
+  - `https://<vps-hostname>.<tailnet>.ts.net/…` (MagicDNS over tailnet)
+- Gateway is **NOT** intended to be reachable at:
+  - `http://<tailscale-ip>:18789/…`
+- Dashboard shows:
+  - **No paired devices**
+  - **No nodes found**
+  - Gateway token visible in UI (token itself stored only in `.env` / secrets)
+
+### Architecture Diagram
+
+```text
+                 (Tailnet only, HTTPS)
+┌───────────────────────────────────────────────────────────┐
+│                         Mac (Client)                      │
+│  Browser -> https://ubuntu-4gb-hel1-1.<tailnet>.ts.net/    │
+└───────────────┬───────────────────────────────────────────┘
+                │
+                │  Tailscale (WireGuard overlay network)
+                ▼
+┌───────────────────────────────────────────────────────────┐
+│                    Hetzner VPS (Linux)                     │
+│                                                           │
+│  tailscale0 interface                                     │
+│    └─ tailscale serve                                     │
+│         - terminates TLS                                  │
+│         - serves MagicDNS hostname                         │
+│         - proxies HTTP/WebSocket traffic to loopback      │
+│                                                           │
+│              ┌───────────────────────────────┐            │
+│              │  http://127.0.0.1:18789       │            │
+│              │  OpenClaw Gateway (Docker)    │            │
+│              └──────────────┬────────────────┘            │
+│                             │                             │
+│                      Docker bridge network                │
+│                             │                             │
+│                     (future) OpenClaw Node(s)             │
+└───────────────────────────────────────────────────────────┘
+```
