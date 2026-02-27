@@ -43,6 +43,8 @@ If pairing breaks, restore from snapshot rather than improvising token resets.
   - CLI container on VPS (paired operator)
 - **Nodes**:
   - Hetzner VPS node (runs inside Docker)
+- **Model**:
+  - venice/llama-3.3-70b
 
 No public ports are exposed on the VPS.
 
@@ -68,6 +70,10 @@ All traffic remains:
 
 The node connects outbound to the gateway over loopback WebSocket.
 The gateway does not initiate execution connections.
+
+- All services must mount:
+  ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
+  ⚠️ **Do not rerun onboarding after node pairing is stable.**
 
 ### Trust boundaries
 
