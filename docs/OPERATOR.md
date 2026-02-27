@@ -306,14 +306,14 @@ Pairing state, device tokens, and identities live in:
 
 /home/taylor/.openclaw
 
-####Backup:
+#### Backup:
 
 ```bash
 tar -czf /home/taylor/openclaw-state-$(date +%Y%m%d-%H%M).tgz \
   -C /home/taylor .openclaw
 ```
 
-####Restore:
+#### Restore:
 
 ```bash
 docker compose down
