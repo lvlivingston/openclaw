@@ -18,7 +18,7 @@ This document exists to:
 - Make the system reproducible after downtime or VPS rebuild
 - Act as a personal runbook for long-lived operation
 
-This guide assumes the operator is comfortable with Linux, SSH, Docker, and basic networking.
+This guide assumes the operator is comfortable with Virtual Private Servers, Linux, SSH, Docker, TLS, and basic networking.
 
 ---
 
@@ -29,12 +29,18 @@ This guide assumes the operator is comfortable with Linux, SSH, Docker, and basi
 This document reflects the currently paired and validated production configuration.
 If pairing breaks, restore from snapshot rather than improvising token resets.
 
-- **Version**: OpenClaw v2026.2.22)
+- **Version**: OpenClaw v2026.2.22
 - **Host**: Hetzner Virtual Private Server (VPS) (Ubuntu 24.04)
 - **Runtime**: Docker Compose
   - `openclaw-gateway`
   - `openclaw-node`
   - `openclaw-cli` (ephemeral container use)
+- **Sandboxing**:
+  - agents.defaults.sandbox.mode = all (all sessions sandboxed)
+  - Gateway container is allowed to spawn sandbox containers via Docker socket:
+    - /var/run/docker.sock mounted into gateway
+    - /usr/bin/docker mounted read-only into gateway
+    - gateway container user node is in host docker group (gid 988)
 - **Network access**:
   - Gateway bound to `127.0.0.1:18789` (host loopback only)
   - Access exposed via Tailscale Serve (HTTPS, MagicDNS)
@@ -48,6 +54,12 @@ If pairing breaks, restore from snapshot rather than improvising token resets.
 
 No public ports are exposed on the VPS.
 
+⚠️ Docker socket access is a high-privilege interface; acceptable only because:
+
+- gateway UI is loopback-only + Tailscale-only access
+- web tools are denied
+- sandbox mode is enforced for the small model
+
 ### Actual Running Topology
 
 ```
@@ -57,9 +69,11 @@ tailscale serve (TLS termination)
     ↓
 http://127.0.0.1:18789
     ↓
-OpenClaw Gateway (Docker)
-    ↑ WebSocket (127.0.0.1)
-OpenClaw Node (Docker, same VPS)
+OpenClaw Gateway (Docker, run as user: node)
+    ↓ /var/run/docker.sock + docker CLI (for sandbox execution)
+Host Docker daemon (on VPS)
+    ↓
+Ephemeral Sandbox Containers (per-session tool runs)
 ```
 
 All traffic remains:
@@ -342,31 +356,38 @@ Each deployment must generate its own pairing state.
 
 ---
 
-## 13. Deployment Reference State (As of 02/26/26)
+## 13. Deployment Reference State (As of 02/28/26)
 
 This section documents the validated, working steady-state configuration.
 If the system drifts from this state, investigate before rotating tokens.
 
 ### Current State (✅ expected)
 
-- Gateway running (Docker)
+- Gateway running Docker and has access for sandboxing:
+  - /var/run/docker.sock mounted
+  - /usr/bin/docker mounted read-only
+  - gateway user node in docker group (gid 988)
 - Node running (Docker, same VPS)
 - 1 paired node device (Hetzner VPS)
 - CLI uses same VPS device identity
 - 1 operator device (browser Dashboard)
+- Sandbox mode "all" is enabled
 - Gateway UI is reachable only at:
   - `https://<vps-hostname>.<tailnet>.ts.net/…` (MagicDNS over tailnet)
 - Gateway bound to:
   - `127.0.0.1:18789`
 - Dashboard shows:
-  - Two paired devices
-  - One node
+  - Two paired devices (operator browser + CLI)
+  - One node (VPS)
   - Gateway token visible in UI (token itself stored only in `.env` / secrets)
+  - One main agent
+  - One instance
 
 The system is NOT designed to:
 
 - Expose `:18789` publicly
 - Bind gateway to `0.0.0.0`
+- NOT designed to publish gateway on non-loopback host interfaces (no 0.0.0.0:18789:18789 mappings)
 - Be accessed via `http://<tailscale-ip>:18789`
 - Use SSH tunnel as primary access method
 
