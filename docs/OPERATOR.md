@@ -17,8 +17,11 @@ This document exists to:
 - Clarify what is safe vs unsafe to reset
 - Make the system reproducible after downtime or VPS rebuild
 - Act as a personal runbook for long-lived operation
+- Document the validated steady-state configuration
 
 This guide assumes the operator is comfortable with Virtual Private Servers, Linux, SSH, Docker, TLS, and basic networking.
+
+This deployment is security-first and intentionally non-public.
 
 ---
 
@@ -27,50 +30,52 @@ This guide assumes the operator is comfortable with Virtual Private Servers, Lin
 ### High-level design
 
 This document reflects the currently paired and validated production configuration.
-If pairing breaks, restore from snapshot rather than improvising token resets.
+If pairing breaks, restore from snapshot rather than improvizing token resets.
 
-- **Version**: OpenClaw v2026.2.22
+- **Version**: OpenClaw v2026.2.26
 - **Host**: Hetzner Virtual Private Server (VPS) (Ubuntu 24.04)
 - **Runtime**: Docker Compose
   - `openclaw-gateway`
   - `openclaw-node`
   - `openclaw-cli` (ephemeral container use)
+- **Model Provider**: VeniceAI (Privacy focused)
+- **Default Model (Main Agent)**: `venice/llama-3.3-70b`
 - **Sandboxing**:
-  - agents.defaults.sandbox.mode = all (all sessions sandboxed)
-  - Gateway container is allowed to spawn sandbox containers via Docker socket:
-    - /var/run/docker.sock mounted into gateway
-    - /usr/bin/docker mounted read-only into gateway
-    - gateway container user node is in host docker group (gid 988)
+  - agents.defaults.sandbox.mode = all
+  - All sessions sandboxed
+  - Gateway allowed to spawn sandbox containers via Docker socket
+    - `/var/run/docker.sock` mounted into gateway
+    - `/usr/bin/docker` mounted read-only
+    - gateway container user `node` in docker group
 - **Network access**:
-  - Gateway bound to `127.0.0.1:18789` (host loopback only)
-  - Access exposed via Tailscale Serve (HTTPS, MagicDNS)
+  - Gateway bound to `127.0.0.1:18789` (loopback only)
+  - Access exposed exclusively via Tailscale Serve (HTTPS + MagicDNS)
 - **Clients**:
-  - macOS browser over tailnet HTTPS
-  - CLI container on VPS (paired operator)
+  - macOS browser over tailnet HTTPS (operator role)
+  - CLI container on VPS (uses node device identity)
 - **Nodes**:
-  - Hetzner VPS node (runs inside Docker)
-- **Model**:
-  - venice/llama-3.3-70b
+  - Single Hetzner VPS node (runs inside Docker)
 
 No public ports are exposed on the VPS.
 
-⚠️ Docker socket access is a high-privilege interface; acceptable only because:
+⚠️ Docker socket access is high-privilege interface and is acceptable only because:
 
-- gateway UI is loopback-only + Tailscale-only access
-- web tools are denied
-- sandbox mode is enforced for the small model
+- Gateway UI is loopback-only + Tailscale-only
+- No public ingress
+- Sandbox mode is enforced for all sessions
+- Web tools are denied unless explicitly enabled
 
 ### Actual Running Topology
 
 ```
-Mac (Browser)
+Mac (Browser - Operator)
     ↓ HTTPS over Tailscale (MagicDNS)
 tailscale serve (TLS termination)
     ↓
 http://127.0.0.1:18789
     ↓
 OpenClaw Gateway (Docker, run as user: node)
-    ↓ /var/run/docker.sock + docker CLI (for sandbox execution)
+    ↓ /var/run/docker.sock + docker CLI
 Host Docker daemon (on VPS)
     ↓
 Ephemeral Sandbox Containers (per-session tool runs)
@@ -78,59 +83,111 @@ Ephemeral Sandbox Containers (per-session tool runs)
 
 All traffic remains:
 
-- Bound to loopback
-- Exposed only via tailnet
-- Not reachable from public internet
+- Loopback-bound
+- Tailnet-restricted
+- Not reachable from the public internet
 
 The node connects outbound to the gateway over loopback WebSocket.
 The gateway does not initiate execution connections.
 
 - All services must mount:
-  ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw
-  ⚠️ **Do not rerun onboarding after node pairing is stable.**
+  ` ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw`
 
-### Trust boundaries
-
-- Gateway runs server-side and owns:
-  - execution context
-  - agent coordination
-- Device nodes (macOS) run:
-  - screen, camera, notifications
-  - local system actions
-
-No public ports are exposed directly on the VPS.
+⚠️ **Do not rerun onboarding after node pairing is stable.**
 
 ---
 
-## 3. Repository vs Runtime State (Critical)
+## 3. Trust & Identity Model
+
+### Single Intended Operator
+
+This deployment is designed for a single human operator.
+
+There is:
+
+- One paired operator device (browser)
+- One paired node device (VPS)
+- CLI uses the VPS device identity
+
+No multi-user or public access model is supported.
+
+### Workspace Identity Files (Persistent State)
+
+The following files define long-term identity and reasoning posture:
+
+- `SOUL.md`
+- `IDENTITY.md`
+- `USER.md`
+
+These are stored inside:
+`~/.openclaw/workspace/`
+
+These files are part of runtime state, not Git state.
+
+Deleting `~/.openclaw` removes:
+
+- Device identities
+- Pairing tokens
+- Workspace files
+- Session memory
+
+---
+
+## 4. Repository vs Runtime State (Critical)
 
 ### In Git (versioned)
 
 - OpenClaw source code
 - Docker configuration
 - Documentation (`docs/`)
-- Operator decisions and notes
+- Architectural decisions
 
 ### On VPS (persistent, NOT in git)
 
 - `~/.openclaw/`
   - device identities
-  - credentials
+  - pairing state
   - workspace files
 - Docker volumes
 - Tailscale state
+- Provider API keys (via environment variables)
 
 ⚠️ **Deleting `~/.openclaw` will invalidate device tokens and sessions.**
 
 ### Ephemeral / Safe to regenerate
 
-- Dashboard URL token (`/#token=...`)
+- Dashboard URL token
 - SSH tunnels
 - Browser session storage
 
 ---
 
-## 4. Provisioning the VPS (Hetzner)
+## 5. Network Access Model (Zero Public Ports)
+
+Gateway binding:
+
+- `127.0.0.1:18789`
+- Docker mapping: `127.0.0.1:18789 -> 18789/tcp`
+
+Exposure method:
+
+- `tailscale serve`
+  - Terminates TLS
+  - Enforces tailnet identity
+  - Proxies to `http://127.0.0.1:18789`
+
+The gateway is NOT:
+
+- Bound to `0.0.0.0`
+- Exposed via public firewall ports
+- Reachable via raw Tailscale IP + port
+- Intended for SSH tunneling as primary access
+
+Only MagicDNS HTTPS endpoint is supported.
+
+---
+
+## 6. Provisioning the VPS (Hetzner)
 
 ### Baseline assumptions
 
@@ -149,7 +206,7 @@ No public ports are exposed directly on the VPS.
 
 ---
 
-## 5. Docker & System Dependencies
+## 7. Docker & System Dependencies
 
 ### Required packages
 
@@ -159,6 +216,72 @@ No public ports are exposed directly on the VPS.
 - Node.js (installed by OpenClaw installer)
 
 Docker is the only supported runtime for long-lived operation.
+
+## 8. Tailscale
+
+- Connect to Docker and device.
+- Must be downloaded to individual devices
+
+---
+
+## 9. Pairing Model (Validated State)
+
+As of 02/28/26:
+
+### Devices
+
+1. **Hetzner VPS Device**
+   - Role: `node`
+   - Runs inside Docker
+   - Provides execution capability
+
+2. **Browser Operator Device**
+   - Role: `operator`
+   - Used for admin and UI access
+
+3. **CLI Container**
+   - Uses same identity as VPS node
+   - Has operator scope attached
+   - Used for:
+     - `devices list`
+     - `devices approve`
+     - `nodes status`
+
+⚠️ If `~/.openclaw` is wiped, all pairing must be redone.
+
+Do not partially delete identity files unless intentionally resetting the entire environment.
+
+---
+
+## 8. Token & Credential Model
+
+There are multiple token types.
+
+### Dashboard token
+
+- Embedded in UI URL
+- Ephemeral
+- Safe to regenerate
+
+### Gateway auth token
+
+- Used for initial client connection
+- Must match on both sides
+- Rotating breaks clients until updated
+
+### Device / node tokens
+
+- Issued after pairing
+- Persisted in `~/.openclaw`
+- Tied to specific device identity
+
+### Provider API keys (e.g., VeniceAI)
+
+- Independent of gateway auth
+- Stored as environment variables
+- Rotating does NOT require gateway reset
+
+⚠️ Never rotate multiple token types at once.
 
 ---
 
@@ -186,124 +309,18 @@ Docker is the only supported runtime for long-lived operation.
 
 ---
 
-## 7. Network Access Model (Zero Public Ports)
-
-### Gateway binding
-
-- Gateway is bound to loopback:
-  - `127.0.0.1:18789`
-- Docker port mapping:
-  - `127.0.0.1:18789 -> 18789/tcp`
-
-### Exposure method
-
-Access is provided via:
-
-- `tailscale serve`
-  - Terminates TLS
-  - Enforces tailnet identity
-  - Proxies to `http://127.0.0.1:18789`
-
-The gateway is NOT:
-
-- Bound to 0.0.0.0 publicly
-- Exposed via public firewall ports
-- Reachable via raw Tailscale IP + port
-
-Only the MagicDNS HTTPS endpoint should be used.
-
----
-
-## 8. Pairing Model (Current Working State)
-
-As of 02/27/26, the system has:
-
-### Paired Devices
-
-1. **Hetzner Node device**
-   - Roles: `node`
-   - Runs inside Docker on VPS
-   - Connected
-
-2. **Operator device (Dashboard browser)**
-   - Role: `operator`
-   - Used for admin actions via UI
-
-3. **CLI container (same device identity as Hetzner Node)**
-   - Uses the same `~/.openclaw` identity as the node
-   - Has `operator` scope attached to that identity
-   - Required for CLI commands like:
-     - `devices list`
-     - `devices approve`
-     - `nodes status`
-
-### Important Principle
-
-Each client context (browser, CLI container, node) must be paired individually.
-
-Operator pairing is required for:
-
-- Approving devices
-- Viewing node status
-- Admin actions
-- Gateway access
-
-Node pairing is required for:
-
-- Execution capabilities
-- Browser/system actions
-
-⚠️ If `~/.openclaw` is wiped, all pairing must be redone.
-Do not partially delete identity files unless intentionally resetting the environment.
-
----
-
-## 9. Token & Credential Model (READ THIS FIRST)
-
-There are **multiple token types**. Confusing them causes most failures.
-
-### Dashboard token
-
-- Embedded in UI URL
-- Ephemeral
-- Safe to ignore or regenerate
-
-### Gateway auth token
-
-- Used for initial client connection
-- Must match on both sides
-- Rotating it breaks all clients until updated
-
-### Device / node tokens
-
-- Issued after pairing
-- Persisted in `~/.openclaw`
-- Tied to specific device identity
-
-### Provider API keys (e.g. VeniceAI)
-
-- Independent of gateway auth
-- Stored as environment variables or via onboarding
-- Rotating does NOT require gateway reset
-
-⚠️ Never rotate multiple token types at once.
-
----
-
 ## 10. Update & Maintenance Policy
 
 ### Updating OpenClaw
 
 - Ensure git tree is clean
 - Run `openclaw update`
-- Verify gateway status after update
-
-### SSH considerations
+- Verify gateway and node status
+- Confirm dashboard loads correctly
+- Confirm devices and node still paired
 
 Long builds may cause SSH disconnects.
-This does not necessarily indicate failure.
-
-Always re-check status after reconnecting.
+Always verify system state after reconnecting.
 
 ---
 
@@ -323,9 +340,8 @@ git push origin checkpoint-YYYYMMDD-HHMM
 
 ### Runtime State Snapshot (Critical)
 
-Pairing state, device tokens, and identities live in:
-
-/home/taylor/.openclaw
+Persistent state:
+`/home/taylor/.openclaw`
 
 #### Backup:
 
@@ -363,36 +379,33 @@ If the system drifts from this state, investigate before rotating tokens.
 
 ### Current State (✅ expected)
 
-- Gateway running Docker and has access for sandboxing:
-  - /var/run/docker.sock mounted
-  - /usr/bin/docker mounted read-only
-  - gateway user node in docker group (gid 988)
-- Node running (Docker, same VPS)
-- 1 paired node device (Hetzner VPS)
-- CLI uses same VPS device identity
-- 1 operator device (browser Dashboard)
-- Sandbox mode "all" is enabled
+- Gateway running in Docker
+- `/var/run/docker.sock` mounted
+- `/usr/bin/docker` mounted read-only
+- Gateway user `node` in docker group
+- Sandbox mode `"all"` enabled
+- One paired node (VPS)
+- One paired operator (browser)
+- CLI uses VPS identity
+- One main agent configured
+- Default model: VeniceAI `venice/llama-3.3-70b`
+- Gateway bound to `127.0.0.1:18789`
+- Access only via MagicDNS HTTPS over tailnet
 - Gateway UI is reachable only at:
   - `https://<vps-hostname>.<tailnet>.ts.net/…` (MagicDNS over tailnet)
-- Gateway bound to:
-  - `127.0.0.1:18789`
-- Dashboard shows:
-  - Two paired devices (operator browser + CLI)
-  - One node (VPS)
-  - Gateway token visible in UI (token itself stored only in `.env` / secrets)
-  - One main agent
-  - One instance
+- No public ports exposed
+- Gateway token and VeniceAI API key only availabe in `.env`
 
-The system is NOT designed to:
+System is NOT designed to:
 
 - Expose `:18789` publicly
 - Bind gateway to `0.0.0.0`
-- NOT designed to publish gateway on non-loopback host interfaces (no 0.0.0.0:18789:18789 mappings)
+- Use raw Tailscale IP access
 - Be accessed via `http://<tailscale-ip>:18789`
-- Use SSH tunnel as primary access method
+- Support multi-operator public access
 
 All traffic remains:
 
 - Loopback-bound
 - Tailnet-restricted
-- Identity-controlled via Tailscale
+- Identity-controlled
