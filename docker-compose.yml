@@ -1,11 +1,13 @@
 services:
   openclaw-gateway:
     image: ${OPENCLAW_IMAGE:-openclaw:local}
+    build: .
     environment:
       HOME: /home/node
       TERM: xterm-256color
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
       VENICE_API_KEY: ${VENICE_API_KEY}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY}
       CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY}
       CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE}
@@ -33,6 +35,7 @@ services:
 
   openclaw-node:
     image: ${OPENCLAW_IMAGE:-openclaw:local}
+    build: .
     network_mode: "host"
     environment:
       HOME: /home/node
@@ -63,6 +66,7 @@ services:
 
   openclaw-cli:
     image: ${OPENCLAW_IMAGE:-openclaw:local}
+    build: .
     network_mode: "host"
     environment:
       HOME: /home/node
