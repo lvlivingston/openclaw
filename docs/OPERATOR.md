@@ -95,6 +95,24 @@ The gateway does not initiate execution connections.
 
 ⚠️ **Do not rerun onboarding after node pairing is stable.**
 
+### Time & Clock Integrity
+
+The infrastructure, including the VPS, runs in UTC.
+
+```Time zone: Etc/UTC (UTC, +0000)
+System clock synchronized: yes
+NTP service: active
+```
+
+- Application-layer scheduling may convert to operator-local time.
+- NTP must remain enabled to prevent token expiry issues, cron drift, and inconsistent logs.
+
+To verify:
+
+```bash
+timedatectl
+```
+
 ---
 
 ## 3. Trust & Identity Model
