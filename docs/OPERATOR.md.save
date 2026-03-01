@@ -47,23 +47,18 @@ If pairing breaks, restore from snapshot rather than improvizing token resets.
     - `/var/run/docker.sock` mounted into gateway
     - `/usr/bin/docker` mounted read-only
     - gateway container user `node` in docker group
-- **Ingress surfaces**:
-  - Tailscale
-    - Access exposed exclusively via Tailscale Serve (HTTPS + MagicDNS)
-    - Gateway bound to `127.0.0.1:18789` (loopback only)
-  - Telegram (polling mode)
-    - Bot: @<botname>\_bot
-    - dmPolicy: allowlist
-    - groupPolicy: allowlist
-    - allowFrom restricted to specific Telegram sender IDs
-    - No webhook exposure (outbound polling only)
+- **Network access**:
+  - Gateway bound to `127.0.0.1:18789` (loopback only)
+  - Access exposed exclusively via Tailscale Serve (HTTPS + MagicDNS)
 - **Clients**:
   - macOS browser over tailnet HTTPS (operator role)
   - CLI container on VPS (uses node device identity)
 - **Nodes**:
   - Single Hetzner VPS node (runs inside Docker)
+- **Channels**:
+  - Telegram - via executive-assistant agent
 
-No public inbound ports are exposed on the VPS firewall.
+No public ports are exposed on the VPS.
 
 ⚠️ Docker socket access is high-privilege interface and is acceptable only because:
 
@@ -101,20 +96,6 @@ The gateway does not initiate execution connections.
   ` ${OPENCLAW_CONFIG_DIR}:/home/node/.openclaw`
 
 ⚠️ **Do not rerun onboarding after node pairing is stable.**
-
-### Channel Ingress (Telegram)
-
-- Telegram uses outbound polling only.
-- No public webhook endpoint is exposed.
-- No inbound firewall ports are opened for Telegram.
-
-```
-Telegram Bot API (Outbound HTTPS polling)
-    ↓
-OpenClaw Gateway (Docker container)
-    ↓
-Agent binding → executive-assistant
-```
 
 ### Time & Clock Integrity
 
