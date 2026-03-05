@@ -58,7 +58,7 @@ If pairing or runtime state breaks, restore from a snapshot rather than improviz
       - Tool execution coordination
       - Sandbox spawning
     - Container:
-      `openc aw-openclaw-gateway-1`
+      `openclaw-openclaw-gateway-1`
     - Ports:
       - 127.0.0.1:18789 → gateway UI / websocket
       - 127.0.0.1:18790 → bridge
@@ -385,7 +385,7 @@ Do not partially delete identity files unless intentionally resetting the entire
 
 ---
 
-## 8. Token & Credential Model
+## 10. Token & Credential Model
 
 There are multiple token types.
 
@@ -417,7 +417,7 @@ There are multiple token types.
 
 ---
 
-## 6. OpenClaw Installation Strategy
+## 11. OpenClaw Installation Strategy
 
 ### Chosen method
 
@@ -441,7 +441,7 @@ There are multiple token types.
 
 ---
 
-## 10. Update & Maintenance Policy
+## 12. Update & Maintenance Policy
 
 ### Updating OpenClaw
 
@@ -456,7 +456,7 @@ Always verify system state after reconnecting.
 
 ---
 
-## 11. Backups & Recovery
+## 13. Backups & Recovery
 
 ### Code Snapshot (Git)
 
@@ -496,7 +496,7 @@ Each deployment must generate its own pairing state.
 
 ---
 
-## 12. References
+## 14. References
 
 - Community Hetzner + Tailscale OpenClaw guide: https://gist.github.com/thedudeabidesai/eb9490c031d869313142368150a060e9
 - Pulumi cloud deployment ideas: https://www.pulumi.com/blog/deploy-openclaw-aws-hetzner/
@@ -504,7 +504,7 @@ Each deployment must generate its own pairing state.
 
 ---
 
-## 13. Deployment Reference State (As of 02/28/26)
+## 15. Deployment Reference State (As of 03/04/26)
 
 This section documents the validated, working steady-state configuration.
 If the system drifts from this state, investigate before rotating tokens.
@@ -513,10 +513,11 @@ If the system drifts from this state, investigate before rotating tokens.
 
 - Gateway running in Docker
 - `/var/run/docker.sock` mounted
-- `/usr/bin/docker` mounted read-only
+- Docker CLI installed inside gateway image
 - Gateway user `node` in docker group
 - Sandbox mode `"all"` enabled
-- One paired node (VPS)
+- Execution environment: Hetzner VPS Docker host
+- Sandbox containers spawned dynamically by gateway
 - One paired operator (browser)
 - CLI uses VPS identity
 - One main agent configured
