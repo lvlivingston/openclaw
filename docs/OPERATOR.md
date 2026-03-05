@@ -4,8 +4,12 @@ This document describes how **this repository’s OpenClaw deployment** is insta
 operated, secured, and maintained.
 
 It is intentionally **deployment-specific** and does not duplicate upstream
-OpenClaw documentation. For general product documentation, see the root `README.md`
-and https://docs.openclaw.ai.
+OpenClaw documentation. For general product documentation, see:
+
+- https://docs.openclaw.ai
+- The upstream repositroy `README.md`
+
+This guide acts as a **personal runbook for stable long-lived operation**.
 
 ---
 
@@ -19,9 +23,16 @@ This document exists to:
 - Act as a personal runbook for long-lived operation
 - Document the validated steady-state configuration
 
-This guide assumes the operator is comfortable with Virtual Private Servers, Linux, SSH, Docker, TLS, and basic networking.
+This guide assumes the operator is comfortable with:
 
-This deployment is security-first and intentionally non-public.
+- Basic networking
+- Docker
+- Linux
+- SSH
+- TLS / HTTPS
+- Virtual Private Servers
+
+This deployment's goal is **security-first and intentionally non-public**.
 
 ---
 
@@ -29,24 +40,61 @@ This deployment is security-first and intentionally non-public.
 
 ### High-level design
 
-This document reflects the currently paired and validated production configuration.
-If pairing breaks, restore from snapshot rather than improvizing token resets.
+This document reflects the **currently paired and validated production configuration**.
+
+If pairing or runtime state breaks, restore from a snapshot rather than improvizing token resets.
 
 - **Version**: OpenClaw v2026.3.2
-- **Host**: Hetzner Virtual Private Server (VPS) (Ubuntu 24.04)
-- **Runtime**: Docker Compose
-  - `openclaw-gateway`
-  - `openclaw-node`
-  - `openclaw-cli` (ephemeral container use)
+- **Host**: Hetzner Virtual Private Server (VPS)
+- **OS**: Ubuntu 24.04
 - **Model Provider**: VeniceAI (Privacy focused)
 - **Default Model (Main Agent)**: `venice/llama-3.3-70b`
-- **Sandboxing**:
-  - agents.defaults.sandbox.mode = all
-  - All sessions sandboxed
-  - Gateway allowed to spawn sandbox containers via Docker socket
-    - `/var/run/docker.sock` mounted into gateway
-    - `/usr/bin/docker` mounted read-only
-    - gateway container user `node` in docker group
+- **Runtime**: Docker Compose
+  - `openclaw-gateway`
+    - Primary runtime service. Responsibilities:
+      - Agent orchestration
+      - Channel ingestion
+      - Model inference routing
+      - Tool execution coordination
+      - Sandbox spawning
+    - Container:
+      `openc aw-openclaw-gateway-1`
+    - Ports:
+      - 127.0.0.1:18789 → gateway UI / websocket
+      - 127.0.0.1:18790 → bridge
+      - Both ports are **loopback-only**.
+  - `openclaw-cli` (ephemeral container use)
+    - Used for:
+      - device management
+      - pairing
+      - diagnostics
+      - operator actions
+      - The CLI runs as **ephemeral containers**. Example:
+        - `docker compose run --rm openclaw-cli devices list`
+- **Execution Model (Sandbox)**:
+  - All agent tool execution occurs inside **ephemeral Docker sandbox containers**.
+  - Configuration:
+    - `agents.defaults.sandbox.mode = all`
+  - Meaning:
+    - All sessions sandboxed
+    - Every tool execution is sandboxed
+    - Containers are spawned dynamically
+    - Containers terminate after session use
+    - Example container:
+      `openclaw-sbx-agent-default-*`
+  - Requirements:
+    - For sandboxing to function the gateway must be able to control Docker. The gateway container therefore has:
+      - Docker socket
+        - `/var/run/docker.sock` mounted into the container
+      - Docker CLI
+        - The gateway image is built with:
+          - `OPENCLAW_INSTALL_DOCKER_CLI=1`
+        - This installs Docker inside the container.
+      - Docker group access
+        - Container user:
+          - `node`
+        - Group membership includes the host docker group.
+        - This allows sandbox containers to be created.
 - **Ingress surfaces**:
   - Tailscale
     - Access exposed exclusively via Tailscale Serve (HTTPS + MagicDNS)
@@ -67,25 +115,66 @@ No public inbound ports are exposed on the VPS firewall.
 
 ⚠️ Docker socket access is high-privilege interface and is acceptable only because:
 
-- Gateway UI is loopback-only + Tailscale-only
-- No public ingress
+- Gateway UI is not publicly exposed
+- Gateway binds only to loopback-only
+- Access is restricted via Tailscale identity
 - Sandbox mode is enforced for all sessions
 - Web tools are denied unless explicitly enabled
+
+### Network Access Model
+
+The gateway is **not exposed publicly**.
+
+#### Local binding
+
+Gateway ports:
+
+`127.0.0.1:18789`
+`127.0.0.1:18790`
+
+Docker mapping:
+
+`127.0.0.1:18789 → 18789`
+`127.0.0.1:18790 → 18790`
+
+No service binds to:
+
+`0.0.0.0`
+
+### Ingress via Tailscale
+
+External access occurs **only via Tailscale Serve**.
+
+Configuration:
+
+`tailscale serve https / http://127.0.0.1:18789`
+
+Result:
+
+`https://<hostname>.<tailnet>.ts.net`
+
+This endpoint is:
+
+- HTTPS
+- MagicDNS
+- tailnet-restricted
+
+Only **authorized tailnet devices** can access it.
 
 ### Actual Running Topology
 
 ```
-Mac (Browser - Operator)
-    ↓ HTTPS over Tailscale (MagicDNS)
+MacOS (Browser - Operator)
+    ↓ HTTPS over Tailscale Tailnet (MagicDNS)
 tailscale serve (TLS termination)
     ↓
 http://127.0.0.1:18789
     ↓
-OpenClaw Gateway (Docker, run as user: node)
+OpenClaw Gateway (Docker)
     ↓ /var/run/docker.sock + docker CLI
-Host Docker daemon (on VPS)
+Docker daemon (on VPS)
     ↓
-Ephemeral Sandbox Containers (per-session tool runs)
+Sandbox Containers
 ```
 
 All traffic remains:
@@ -113,7 +202,7 @@ Telegram Bot API (Outbound HTTPS polling)
     ↓
 OpenClaw Gateway (Docker container)
     ↓
-Agent binding → executive-assistant
+Agent binding → default
 ```
 
 ### Time & Clock Integrity
@@ -140,17 +229,20 @@ timedatectl
 
 ### Single Intended Operator
 
-This deployment is designed for a single human operator.
+This deployment is designed for **a single operator**.
 
-There is:
-
-- One paired operator device (browser)
-- One paired node device (VPS)
-- CLI uses the VPS device identity
+| Device        | Role                  |
+| ------------- | --------------------- |
+| VPS           | execution environment |
+| Browser       | operator              |
+| CLI container | operator tooling      |
 
 No multi-user or public access model is supported.
 
 ### Workspace Identity Files (Persistent State)
+
+Runtime identity files exist inside:
+`~/.openclaw/workspace/`
 
 The following files define long-term identity and reasoning posture:
 
@@ -158,8 +250,7 @@ The following files define long-term identity and reasoning posture:
 - `IDENTITY.md`
 - `USER.md`
 
-These are stored inside:
-`~/.openclaw/workspace/`
+These represent the **agent personality and reasoning state**.
 
 These files are part of runtime state, not Git state.
 
@@ -168,7 +259,7 @@ Deleting `~/.openclaw` removes:
 - Device identities
 - Pairing tokens
 - Workspace files
-- Session memory
+- Session history
 
 ---
 
@@ -176,17 +267,19 @@ Deleting `~/.openclaw` removes:
 
 ### In Git (versioned)
 
-- OpenClaw source code
-- Docker configuration
+- OpenClaw source (code)
+- Docker configuration (docker-compose.yml)
 - Documentation (`docs/`)
-- Architectural decisions
+- Architectural decisions (operational runbooks)
 
 ### On VPS (persistent, NOT in git)
 
 - `~/.openclaw/`
-  - device identities
-  - pairing state
+  - device identity
+  - pairing tokens
   - workspace files
+  - sessions
+  - memory
 - Docker volumes
 - Tailscale state
 - Provider API keys (via environment variables)
