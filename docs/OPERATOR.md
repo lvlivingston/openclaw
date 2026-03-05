@@ -32,7 +32,7 @@ This deployment is security-first and intentionally non-public.
 This document reflects the currently paired and validated production configuration.
 If pairing breaks, restore from snapshot rather than improvizing token resets.
 
-- **Version**: OpenClaw v2026.2.26
+- **Version**: OpenClaw v2026.3.2
 - **Host**: Hetzner Virtual Private Server (VPS) (Ubuntu 24.04)
 - **Runtime**: Docker Compose
   - `openclaw-gateway`
