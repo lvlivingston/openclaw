@@ -121,3 +121,6 @@ dist/protocol.schema.json
 
 # Synthing
 **/.stfolder/
+
+client_secret*.json
+*.apps.googleusercontent.com.json
