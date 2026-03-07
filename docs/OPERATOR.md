@@ -105,6 +105,13 @@ If pairing or runtime state breaks, restore from a snapshot rather than improviz
     - groupPolicy: allowlist
     - allowFrom restricted to specific Telegram sender IDs
     - No webhook exposure (outbound polling only)
+  - Google Workspace APIs (OAuth via gogcli)
+    - Used for Google Calendar (and optionally Gmail)
+    - Authentication performed via OAuth using a Desktop App client
+    - Tokens stored in `~/.config/gogcli` and mounted into the gateway container
+    - OAuth client secret stored locally in `~/.secrets` (never committed to Git)
+    - Access occurs via outbound HTTPS to Google APIs only
+    - No inbound ports or webhook exposure
 - **Clients**:
   - macOS browser over tailnet HTTPS (operator role)
   - CLI container on VPS (uses node device identity)
@@ -204,6 +211,30 @@ OpenClaw Gateway (Docker container)
     ↓
 Agent binding → default
 ```
+
+### Outbound API Access (Google Workspace)
+
+- Google services are accessed via outbound HTTPS using the `gog` CLI.
+- Authentication is performed via OAuth.
+
+```
+OpenClaw Gateway (Docker container)
+    ↓
+gog CLI
+    ↓
+Google OAuth tokens
+    ↓
+Google APIs
+```
+
+Characteristics:
+
+- No inbound listener
+- No webhook exposure
+- No firewall port opened
+- Tokens stored locally in `~/.config/gogcli`
+- OAuth client secret stored locally in `~/.secrets`
+- Access originates from the gateway container only
 
 ### Time & Clock Integrity
 
@@ -349,6 +380,8 @@ Only MagicDNS HTTPS endpoint is supported.
 
 Docker is the only supported runtime for long-lived operation.
 
+---
+
 ## 8. Tailscale
 
 - Connect to Docker and device.
@@ -412,6 +445,19 @@ There are multiple token types.
 - Independent of gateway auth
 - Stored as environment variables
 - Rotating does NOT require gateway reset
+
+### Telegram Bot Token
+
+- Stored in `.env`
+- Used by Telegram ingress adapter
+- Never committed to Git
+
+### Google OAuth Client Secret
+
+- Stored locally in `~/.secrets/client_secret_*.json`
+- Never committed to Git (GitHub push protection blocks these)
+- Used only for initial `gog auth credentials` bootstrap
+- If exposed, rotate immediately in Google Cloud Console
 
 ⚠️ Never rotate multiple token types at once.
 
@@ -504,7 +550,7 @@ Each deployment must generate its own pairing state.
 
 ---
 
-## 15. Deployment Reference State (As of 03/04/26)
+## 15. Deployment Reference State (As of 03/07/26)
 
 This section documents the validated, working steady-state configuration.
 If the system drifts from this state, investigate before rotating tokens.
@@ -522,6 +568,10 @@ If the system drifts from this state, investigate before rotating tokens.
 - CLI uses VPS identity
 - One main agent configured
 - Default model: VeniceAI `venice/llama-3.3-70b`
+- Google Workspace integration enabled via `gog` CLI
+- OAuth tokens persisted in `~/.config/gogcli`
+- OAuth client secret stored locally in `~/.secrets`
+- Google API access is outbound HTTPS only
 - Gateway bound to `127.0.0.1:18789`
 - Access only via MagicDNS HTTPS over tailnet
 - Gateway UI is reachable only at:
@@ -529,7 +579,7 @@ If the system drifts from this state, investigate before rotating tokens.
 - No public ports exposed
 - Gateway token and VeniceAI API key only availabe in `.env`
 
-System is NOT designed to:
+### System is NOT designed to:
 
 - Expose `:18789` publicly
 - Bind gateway to `0.0.0.0`
@@ -542,3 +592,4 @@ All traffic remains:
 - Loopback-bound
 - Tailnet-restricted
 - Identity-controlled
+- Outbound API access via HTTPS only
