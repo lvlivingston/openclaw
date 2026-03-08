@@ -595,3 +595,21 @@ All traffic remains:
 - Tailnet-restricted
 - Identity-controlled
 - Outbound API access via HTTPS only
+
+### Operator Note for next session
+
+Google integration is authenticated through the `gog` CLI on the gateway container.
+
+The Executive Assistant agent runs inside an OpenClaw sandbox.
+The sandbox does not contain the `gog` binary, so direct CLI access from the agent fails.
+
+Future work will introduce **host-side wrapper commands** that safely expose calendar and Gmail functionality without granting the sandbox direct access to `gog`.
+
+Baseline snapshot for this state:
+
+Git tag:
+baseline-pre-wrapper-20260308-1150
+
+Local backups:
+~/openclaw/local-backups/openclaw.json.baseline._
+~/openclaw/local-backups/workspace-executive-assistant._
