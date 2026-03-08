@@ -48,7 +48,7 @@ If pairing or runtime state breaks, restore from a snapshot rather than improviz
 - **Host**: Hetzner Virtual Private Server (VPS)
 - **OS**: Ubuntu 24.04
 - **Model Provider**: VeniceAI (Privacy focused)
-- **Default Model (Main Agent)**: `venice/llama-3.3-70b`
+- **Default Model (Main Agent)**: `venice/kimi-k2-5`
 - **Runtime**: Docker Compose
   - `openclaw-gateway`
     - Primary runtime service. Responsibilities:
@@ -280,8 +280,10 @@ The following files define long-term identity and reasoning posture:
 - `SOUL.md`
 - `IDENTITY.md`
 - `USER.md`
+- `ROLE.md`
+- `TOOLS.md`
 
-These represent the **agent personality and reasoning state**.
+These represent the **agent personality, reasoning state, behaviors, and tools**.
 
 These files are part of runtime state, not Git state.
 
@@ -391,7 +393,7 @@ Docker is the only supported runtime for long-lived operation.
 
 ## 9. Pairing Model (Validated State)
 
-As of 02/28/26:
+As of 03/08/26:
 
 ### Devices
 
@@ -524,16 +526,16 @@ Persistent state:
 #### Backup:
 
 ```bash
-tar -czf /home/taylor/openclaw-state-$(date +%Y%m%d-%H%M).tgz \
-  -C /home/taylor .openclaw
+tar -czf /home/<sudo>/openclaw-state-$(date +%Y%m%d-%H%M).tgz \
+  -C /home/<sudo> .openclaw
 ```
 
 #### Restore:
 
 ```bash
 docker compose down
-rm -rf /home/taylor/.openclaw
-tar -xzf openclaw-state-YYYYMMDD-HHMM.tgz -C /home/taylor
+rm -rf /home/<sudo>/.openclaw
+tar -xzf openclaw-state-YYYYMMDD-HHMM.tgz -C /home/<sudo>
 docker compose up -d
 ```
 
@@ -550,7 +552,7 @@ Each deployment must generate its own pairing state.
 
 ---
 
-## 15. Deployment Reference State (As of 03/07/26)
+## 15. Deployment Reference State (As of 03/08/26)
 
 This section documents the validated, working steady-state configuration.
 If the system drifts from this state, investigate before rotating tokens.
@@ -567,7 +569,7 @@ If the system drifts from this state, investigate before rotating tokens.
 - One paired operator (browser)
 - CLI uses VPS identity
 - One main agent configured
-- Default model: VeniceAI `venice/llama-3.3-70b`
+- Default model: VeniceAI `venice/kimi-k2-5`
 - Google Workspace integration enabled via `gog` CLI
 - OAuth tokens persisted in `~/.config/gogcli`
 - OAuth client secret stored locally in `~/.secrets`
