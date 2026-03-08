@@ -105,7 +105,7 @@ If pairing or runtime state breaks, restore from a snapshot rather than improviz
     - groupPolicy: allowlist
     - allowFrom restricted to specific Telegram sender IDs
     - No webhook exposure (outbound polling only)
-  - Google Workspace APIs (OAuth via gogcli)
+  - Google Workspace APIs (OAuth via gogcli on the gateway container)
     - Used for Google Calendar (and optionally Gmail)
     - Authentication performed via OAuth using a Desktop App client
     - Tokens stored in `~/.config/gogcli` and mounted into the gateway container
@@ -570,7 +570,7 @@ If the system drifts from this state, investigate before rotating tokens.
 - CLI uses VPS identity
 - One main agent configured
 - Default model: VeniceAI `venice/kimi-k2-5`
-- Google Workspace integration enabled via `gog` CLI
+- Google Workspace integration enabled via `gog` CLI on the gateway container
 - OAuth tokens persisted in `~/.config/gogcli`
 - OAuth client secret stored locally in `~/.secrets`
 - Google API access is outbound HTTPS only
