@@ -1,0 +1,3 @@
+CONTAINER                     REPOSITORY          TAG                 PLATFORM            IMAGE ID            SIZE                CREATED
+openclaw-openclaw-cli-1       openclaw            local               linux/amd64         5ed9bdba9037        1.19GB              46 hours ago
+openclaw-openclaw-gateway-1   openclaw            local               linux/amd64         5ed9bdba9037        1.19GB              46 hours ago

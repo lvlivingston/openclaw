@@ -1,0 +1,4 @@
+REPOSITORY         TAG             IMAGE ID       CREATED
+openclaw           local           5ed9bdba9037   46 hours ago
+openclaw           latest          30f265587c11   9 days ago
+openclaw-sandbox   bookworm-slim   74d56e3931e0   2 weeks ago
